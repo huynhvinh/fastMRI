@@ -159,7 +159,7 @@ def build_args():
         checkpoint_dir.mkdir(parents=True)
 
     args.checkpoint_callback = pl.callbacks.ModelCheckpoint(
-        filepath=args.default_root_dir / "checkpoints",
+        dirpath=args.default_root_dir / "checkpoints",
         save_top_k=True,
         verbose=True,
         monitor="validation_loss",
