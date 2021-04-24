@@ -20,6 +20,7 @@ from fastmri.data import transforms
 
 def barlow_loss():
     #TODO
+    pass
 
 
 def mse(gt: np.ndarray, pred: np.ndarray) -> np.ndarray:
