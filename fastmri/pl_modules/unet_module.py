@@ -81,13 +81,13 @@ class UnetModule(MriModule):
         return self.unet(image.unsqueeze(1)).squeeze(1)
 
     def training_step(self, batch, batch_idx):
-        image, target, _, _, _, _, _ = batch
-        output = self(image)
-        loss = F.l1_loss(output, target)
+        image1, image2, _, _, _, _, _ = batch
+        output1 = self(image1)
+        output2 = self(image2)
+        bt_loss = F.barlow_loss(output1, output2)
+        self.log("BT loss", bt_loss.detach())
 
-        self.log("loss", loss.detach())
-
-        return loss
+        return bt_loss
 
     def validation_step(self, batch, batch_idx):
         image, target, mean, std, fname, slice_num, max_value = batch
