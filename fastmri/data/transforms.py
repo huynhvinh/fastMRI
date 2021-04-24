@@ -501,8 +501,8 @@ class UnetBarlowDataTransform:
             image = fastmri.rss(image)
 
         # normalize input
-        image, mean, std = normalize_instance(image, eps=1e-11)
-        image = image.clamp(-6, 6)
+        # image, mean, std = normalize_instance(image, eps=1e-11)
+        # image = image.clamp(-6, 6)
         
         # Image 2
         # apply mask
@@ -529,7 +529,20 @@ class UnetBarlowDataTransform:
             image2 = fastmri.rss(image2)
 
         # normalize input
-        image2, mean, std = normalize_instance(image2, eps=1e-11)
-        image2 = image2.clamp(-6, 6)
+        # image2, mean, std = normalize_instance(image2, eps=1e-11)
         
-        return image, image2, mean, std, fname, slice_num, max_value
+        image_cat = torch.stack([image, image2], dim=0)
+        image_cat, mean, std = normalize_instance(image_cat, eps=1e-11)
+        image_cat = image_cat.clamp(-6, 6)
+        image, image2 = image_cat[0], image_cat[1]
+        
+        # normalize target
+        if target is not None:
+            target = to_tensor(target)
+            target = center_crop(target, crop_size)
+            target = normalize(target, mean, std, eps=1e-11)
+            target = target.clamp(-6, 6)
+        else:
+            target = torch.Tensor([0])
+        
+        return image, image2, target, mean, std, fname, slice_num, max_value
