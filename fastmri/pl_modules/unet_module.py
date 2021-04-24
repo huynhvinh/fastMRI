@@ -14,6 +14,12 @@ from torch.nn import functional as F
 from .mri_module import MriModule
 
 
+def off_diagonal(x):
+    # return a flattened view of the off-diagonal elements of a square matrix
+    n, m = x.shape
+    assert n == m
+    return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
+
 class UnetModule(MriModule):
     """
     Unet training module.
@@ -81,17 +87,31 @@ class UnetModule(MriModule):
         return self.unet(image.unsqueeze(1)).squeeze(1)
 
     def training_step(self, batch, batch_idx):
-        image, target, _, _, _, _, _ = batch
-        output = self(image)
-        loss = F.l1_loss(output, target)
+        image_a, image_b, target, _, _, _, _, _ = batch
+        batch_size = image_a.size(0)
+        y_a, z_a = self(image_a)
+        y_b, z_b = self(image_b)
+        
+        z_a = z_a.view(batch_size, -1)
+        z_a = z_a.view(batch_size, -1)
+        
+        z_a_norm = (z_a - z_a.mean(0)) / z_a.std(0)
+        z_b_norm = (z_b - z_b.mean(0)) / z_b.std(0)
+        c = z_a_norm.T @ z_b_norm
+        
+        on_diag = torch.diagonal(c).add_(-1).pow_(2).sum().mul(1/32)
+        off_diag = off_diagonal(c).pow_(2).sum().mul(1/32)
+        barlow = on_diag + 3.9e-3 * off_diag
+        loss = F.l1_loss(y_a, target) + F.l1_loss(y_b, target)
 
         self.log("loss", loss.detach())
+        self.log("barlow", barlow.detach())
 
-        return loss
+        return loss + barlow
 
     def validation_step(self, batch, batch_idx):
-        image, target, mean, std, fname, slice_num, max_value = batch
-        output = self(image)
+        image, _, target, mean, std, fname, slice_num, max_value = batch
+        output,_ = self(image)
         mean = mean.unsqueeze(1).unsqueeze(2)
         std = std.unsqueeze(1).unsqueeze(2)
 
@@ -106,8 +126,8 @@ class UnetModule(MriModule):
         }
 
     def test_step(self, batch, batch_idx):
-        image, _, mean, std, fname, slice_num, _ = batch
-        output = self.forward(image)
+        image, _, _, mean, std, fname, slice_num, _ = batch
+        output, _ = self.forward(image)
         mean = mean.unsqueeze(1).unsqueeze(2)
         std = std.unsqueeze(1).unsqueeze(2)
 
