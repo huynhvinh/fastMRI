@@ -10,7 +10,7 @@ from argparse import ArgumentParser
 import torch
 from fastmri.models import Unet
 from torch.nn import functional as F
-
+from fastmri import evaluate
 from .mri_module import MriModule
 
 
@@ -84,7 +84,8 @@ class UnetModule(MriModule):
         image1, image2, _, _, _, _, _ = batch
         output1 = self(image1)
         output2 = self(image2)
-        bt_loss = F.barlow_loss(output1, output2)
+        
+        bt_loss = evaluate.barlow_loss(output1, output2)
         self.log("BT loss", bt_loss.detach())
 
         return bt_loss
