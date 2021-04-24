@@ -410,3 +410,126 @@ class VarNetDataTransform:
             max_value,
             crop_size,
         )
+class UnetBarlowDataTransform:
+    """
+    Data Transformer for training U-Net models. Generates two kspace images for each input image
+    """
+
+    def __init__(
+        self,
+        which_challenge: str,
+        mask_func: Optional[MaskFunc] = None,
+        use_seed: bool = True,
+    ):
+        """
+        Args:
+            which_challenge: Challenge from ("singlecoil", "multicoil").
+            mask_func: Optional; A function that can create a mask of
+                appropriate shape.
+            use_seed: If true, this class computes a pseudo random number
+                generator seed from the filename. This ensures that the same
+                mask is used for all the slices of a given volume every time.
+        """
+        if which_challenge not in ("singlecoil", "multicoil"):
+            raise ValueError("Challenge should either be 'singlecoil' or 'multicoil'")
+
+        self.mask_func = mask_func
+        self.which_challenge = which_challenge
+        self.use_seed = use_seed
+
+    def __call__(
+        self,
+        kspace: np.ndarray,
+        mask: np.ndarray,
+        target: np.ndarray,
+        attrs: Dict,
+        fname: str,
+        slice_num: int,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, str, int, float]:
+        """
+        Args:
+            kspace: Input k-space of shape (num_coils, rows, cols) for
+                multi-coil data or (rows, cols) for single coil data.
+            mask: Mask from the test dataset.
+            target: Target image.
+            attrs: Acquisition related information stored in the HDF5 object.
+            fname: File name.
+            slice_num: Serial number of the slice.
+
+        Returns:
+            tuple containing:
+                image: Zero-filled input image.
+                target: Target image converted to a torch.Tensor.
+                mean: Mean value used for normalization.
+                std: Standard deviation value used for normalization.
+                fname: File name.
+                slice_num: Serial number of the slice.
+        """
+        kspace = to_tensor(kspace)
+
+        # check for max value
+        max_value = attrs["max"] if "max" in attrs.keys() else 0.0
+
+        # crop input to correct size
+        if target is not None:
+            crop_size = (target.shape[-2], target.shape[-1])
+        else:
+            crop_size = (attrs["recon_size"][0], attrs["recon_size"][1])
+
+        # Image 1
+        # apply mask
+        if self.mask_func:
+            seed = None if not self.use_seed else tuple(map(ord, fname))
+            masked_kspace, mask = apply_mask(kspace, self.mask_func, seed)
+        else:
+            masked_kspace = kspace
+
+        # inverse Fourier transform to get zero filled solution
+        image = fastmri.ifft2c(masked_kspace)
+
+        # check for FLAIR 203
+        if image.shape[-2] < crop_size[1]:
+            crop_size = (image.shape[-2], image.shape[-2])
+
+        image = complex_center_crop(image, crop_size)
+
+        # absolute value
+        image = fastmri.complex_abs(image)
+
+        # apply Root-Sum-of-Squares if multicoil data
+        if self.which_challenge == "multicoil":
+            image = fastmri.rss(image)
+
+        # normalize input
+        image, mean, std = normalize_instance(image, eps=1e-11)
+        image = image.clamp(-6, 6)
+        
+        # Image 2
+        # apply mask
+        if self.mask_func:
+            seed = None if not self.use_seed else tuple(map(ord, fname+'_2'))
+            masked_kspace, mask = apply_mask(kspace, self.mask_func, seed)
+        else:
+            masked_kspace = kspace
+
+        # inverse Fourier transform to get zero filled solution
+        image2 = fastmri.ifft2c(masked_kspace)
+
+        # check for FLAIR 203
+        if image2.shape[-2] < crop_size[1]:
+            crop_size = (image2.shape[-2], image2.shape[-2])
+
+        image2 = complex_center_crop(image2, crop_size)
+
+        # absolute value
+        image2 = fastmri.complex_abs(image2)
+
+        # apply Root-Sum-of-Squares if multicoil data
+        if self.which_challenge == "multicoil":
+            image2 = fastmri.rss(image2)
+
+        # normalize input
+        image2, mean, std = normalize_instance(image2, eps=1e-11)
+        image2 = image2.clamp(-6, 6)
+        
+        return image, image2, mean, std, fname, slice_num, max_value
