@@ -12,7 +12,7 @@ from argparse import ArgumentParser
 import pytorch_lightning as pl
 from fastmri.data.mri_data import fetch_dir
 from fastmri.data.subsample import create_mask_for_mask_type
-from fastmri.data.transforms import UnetDataTransform
+from fastmri.data.transforms import UnetDataTransform, UnetBarlowDataTransform
 from fastmri.pl_modules import FastMriDataModule, UnetModule
 
 
@@ -27,9 +27,9 @@ def cli_main(args):
         args.mask_type, args.center_fractions, args.accelerations
     )
     # use random masks for train transform, fixed masks for val transform
-    train_transform = UnetDataTransform(args.challenge, mask_func=mask, use_seed=False)
-    val_transform = UnetDataTransform(args.challenge, mask_func=mask)
-    test_transform = UnetDataTransform(args.challenge)
+    train_transform = UnetBarlowDataTransform(args.challenge, mask_func=mask, use_seed=False)
+    val_transform = UnetBarlowDataTransform(args.challenge, mask_func=mask)
+    test_transform = UnetBarlowDataTransform(args.challenge)
     # ptl data module - this handles data loaders
     data_module = FastMriDataModule(
         data_path=args.data_path,
