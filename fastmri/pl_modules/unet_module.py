@@ -94,7 +94,7 @@ class UnetModule(MriModule):
         y_b, z_b = self(image_b)
         
         z_a = z_a.view(batch_size, -1)
-        z_a = z_a.view(batch_size, -1)
+        z_b = z_b.view(batch_size, -1)
         
         z_a_norm = (z_a - z_a.mean(0)) / z_a.std(0)
         z_b_norm = (z_b - z_b.mean(0)) / z_b.std(0)
