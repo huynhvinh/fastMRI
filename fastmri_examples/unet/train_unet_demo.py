@@ -123,7 +123,7 @@ def build_args():
 
     # data config with path to fastMRI data and batch size
     parser = FastMriDataModule.add_data_specific_args(parser)
-    parser.set_defaults(data_path=data_path, batch_size=batch_size, test_path=None)
+    parser.set_defaults(data_path=data_path, batch_size=arg.batch_size, test_path=None)
 
     # module config
     parser = UnetModule.add_model_specific_args(parser)
