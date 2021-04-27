@@ -103,6 +103,7 @@ class UnetModule(MriModule):
         on_diag = torch.diagonal(c).add_(-1).pow_(2).mean()
         off_diag = off_diagonal(c).pow_(2).mean()
         barlow = on_diag + 0.0001 * off_diag
+        print(barlow)
         loss = F.l1_loss(y_a, target) + F.l1_loss(y_b, target) + barlow
 
         self.log("loss", loss.detach())
