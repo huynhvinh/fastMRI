@@ -84,6 +84,7 @@ class Unet(nn.Module):
             output = F.avg_pool2d(output, kernel_size=2, stride=2, padding=0)
 
         output = self.conv(output)
+        features = output
         # apply up-sampling layers
         i = 0
         for transpose_conv, conv in zip(self.up_transpose_conv, self.up_conv):
@@ -101,10 +102,7 @@ class Unet(nn.Module):
 
             output = torch.cat([output, downsample_layer], dim=1)
             output = conv(output)
-            if i >= len(self.up_conv) / 2:
-                features = output
-                features = F.avg_pool2d(features, kernel_size=2, stride=2, padding=0)
-            i += 1
+            
 
         return output, features
 
