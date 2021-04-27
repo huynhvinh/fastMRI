@@ -98,7 +98,7 @@ class UnetModule(MriModule):
         
         z_a_norm = (z_a - z_a.mean(0)) / z_a.std(0)
         z_b_norm = (z_b - z_b.mean(0)) / z_b.std(0)
-        c = z_a_norm.T @ z_b_norm
+        c = (z_a_norm.T @ z_b_norm) / batch_size
         
         on_diag = torch.diagonal(c).add_(-1).pow_(2).mean()
         off_diag = off_diagonal(c).pow_(2).mean()
