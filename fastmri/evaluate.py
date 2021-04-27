@@ -12,15 +12,35 @@ from typing import Optional
 
 import h5py
 import numpy as np
+import torch
+from torch.nn import functional as F
 from runstats import Statistics
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 
 from fastmri.data import transforms
 
+def off_diagonal(x):
+    # return a flattened view of the off-diagonal elements of a square matrix
+    n, m = x.shape
+    assert n == m
+    return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
 
-def barlow_loss():
-    #TODO
-    pass
+def barlow_loss(y_a, z_a, y_b, z_b, target):
+    
+    
+    batch_size = y_a.size(0)
+    z_a = z_a.view(batch_size, -1)
+    z_b = z_b.view(batch_size, -1)
+    
+    z_a_norm = (z_a - z_a.mean(0)) / z_a.std(0)
+    z_b_norm = (z_b - z_b.mean(0)) / z_b.std(0)
+    c = (z_a_norm.T @ z_b_norm) / batch_size
+    
+    on_diag = torch.diagonal(c).add_(-1).pow_(2).mean()
+    off_diag = off_diagonal(c).pow_(2).mean()
+    barlow = on_diag + 0.0001 * off_diag
+    loss = F.l1_loss(y_a, target) + F.l1_loss(y_b, target) + barlow
+    return loss
 
 
 def mse(gt: np.ndarray, pred: np.ndarray) -> np.ndarray:

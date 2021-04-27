@@ -89,28 +89,17 @@ class UnetModule(MriModule):
 
     def training_step(self, batch, batch_idx):
         image_a, image_b, target, _, _, _, _, _ = batch
-        batch_size = image_a.size(0)
         y_a, z_a = self(image_a)
         y_b, z_b = self(image_b)
-        
-        z_a = z_a.view(batch_size, -1)
-        z_b = z_b.view(batch_size, -1)
-        
-        z_a_norm = (z_a - z_a.mean(0)) / z_a.std(0)
-        z_b_norm = (z_b - z_b.mean(0)) / z_b.std(0)
-        c = (z_a_norm.T @ z_b_norm) / batch_size
-        
-        on_diag = torch.diagonal(c).add_(-1).pow_(2).mean()
-        off_diag = off_diagonal(c).pow_(2).mean()
-        barlow = on_diag + 0.0001 * off_diag
-        loss = F.l1_loss(y_a, target) + F.l1_loss(y_b, target) + barlow
+        loss = evaluate.barlow_loss(y_a, z_a, y_b, z_b, target)
 
         self.log("loss", loss.detach())
         return loss
 
     def validation_step(self, batch, batch_idx):
-        image, _, target, mean, std, fname, slice_num, max_value = batch
-        output,_ = self(image)
+        image_a, image_b, target, mean, std, fname, slice_num, max_value = batch
+        y_a, z_a = self(image_a)
+        y_b, z_b = self(image_b)
         mean = mean.unsqueeze(1).unsqueeze(2)
         std = std.unsqueeze(1).unsqueeze(2)
 
@@ -119,9 +108,10 @@ class UnetModule(MriModule):
             "fname": fname,
             "slice_num": slice_num,
             "max_value": max_value,
-            "output": output * std + mean,
+            "output1": y_a * std + mean,
+            "output2": y_b * std + mean,
             "target": target * std + mean,
-            "val_loss": F.l1_loss(output, target),
+            "val_loss": evaluate.barlow_loss(y_a, z_a, y_b, z_b, target)
         }
 
     def test_step(self, batch, batch_idx):
