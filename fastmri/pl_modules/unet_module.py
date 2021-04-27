@@ -111,7 +111,7 @@ class UnetModule(MriModule):
         return loss + barlow
 
     def validation_step(self, batch, batch_idx):
-        image, _, target, mean, std, fname, slice_num, max_value = batch
+        image, target, mean, std, fname, slice_num, max_value = batch
         output,_ = self(image)
         mean = mean.unsqueeze(1).unsqueeze(2)
         std = std.unsqueeze(1).unsqueeze(2)
