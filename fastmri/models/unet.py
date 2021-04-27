@@ -102,7 +102,7 @@ class Unet(nn.Module):
             output = torch.cat([output, downsample_layer], dim=1)
             output = conv(output)
             i += 1
-            if i >= 2:
+            if i >= 1:
                 features = output
 
 
