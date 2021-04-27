@@ -100,15 +100,13 @@ class UnetModule(MriModule):
         z_b_norm = (z_b - z_b.mean(0)) / z_b.std(0)
         c = z_a_norm.T @ z_b_norm
         
-        on_diag = torch.diagonal(c).add_(-1).pow_(2).sum().mul(1/32)
-        off_diag = off_diagonal(c).pow_(2).sum().mul(1/32)
-        barlow = on_diag + 3.9e-3 * off_diag
-        loss = F.l1_loss(y_a, target) + F.l1_loss(y_b, target)
+        on_diag = torch.diagonal(c).add_(-1).pow_(2).mean()
+        off_diag = off_diagonal(c).pow_(2).mean()
+        barlow = on_diag + 0.0001 * off_diag
+        loss = F.l1_loss(y_a, target) + F.l1_loss(y_b, target) + barlow
 
         self.log("loss", loss.detach())
-        self.log("barlow", barlow.detach())
-
-        return loss + barlow
+        return loss
 
     def validation_step(self, batch, batch_idx):
         image, _, target, mean, std, fname, slice_num, max_value = batch
