@@ -74,7 +74,6 @@ class UnetModule(MriModule):
         self.lr_step_size = lr_step_size
         self.lr_gamma = lr_gamma
         self.weight_decay = weight_decay
-
         self.unet = Unet(
             in_chans=self.in_chans,
             out_chans=self.out_chans,

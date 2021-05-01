@@ -27,7 +27,7 @@ def cli_main(args):
         args.mask_type, args.center_fractions, args.accelerations
     )
     strong_mask = create_mask_for_mask_type(
-        args.mask_type, 1 - args.center_fractions, args.accelerations
+        args.mask_type, [1-i for i in args.center_fractions], args.accelerations
     )
     # use random masks for train transform, fixed masks for val transform
     train_transform = UnetMixMatchDataTransform(args.challenge, mask_func=(weak_mask, strong_mask), proportion=args.proportion, use_seed=False)

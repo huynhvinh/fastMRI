@@ -573,7 +573,7 @@ class UnetMixMatchDataTransform:
             raise ValueError("Challenge should either be 'singlecoil' or 'multicoil'")
         self.strong_mask_func = None
         self.weak_mask_func = None
-        if mask_func.size > 1:
+        if len(mask_func) > 1:
             self.strong_mask_func = mask_func[0]
             self.weak_mask_func = mask_func[1]
         self.which_challenge = which_challenge
