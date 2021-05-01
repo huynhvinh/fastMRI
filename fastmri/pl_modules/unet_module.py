@@ -153,8 +153,6 @@ class FixMatchUnetModule(MriModule):
         final_loss = label_ce_loss + self.weights * unlabel_ce_loss
         #print('final loss\n', final_loss)
 
-        final_loss = label_ce_loss + self.weights * unlabel_ce_loss
-
         mean = mean.unsqueeze(1).unsqueeze(2)
         std = std.unsqueeze(1).unsqueeze(2)
 
