@@ -114,9 +114,22 @@ class FixMatchUnetModule(MriModule):
         return final_loss
 
     def validation_step(self, batch, batch_idx):
-        image_a, image_b, target, mean, std, fname, slice_num, max_value = batch
-        y_a, z_a = self(image_a)
-        y_b, z_b = self(image_b)
+        weak_img, strong_img, target, mean, std, fname, slice_num, max_value = batch
+
+        n = weak_img.shape[0]
+        slice_index = int(self.proportion * n)
+        # labelled images
+        label_op, label_ft = self(weak_img[:slice_index])
+        label_ce_loss = F.l1_loss(label_op, target[:slice_index])
+
+        # unlabelled images
+        unlabel_weak_op, unlabel_weak_ft = self(weak_img[slice_index:])  # weak augmented
+        unlabel_strong_op, unlabel_strong_ft = self(strong_img[slice_index:])  # strong augmented
+        unlabelled_loss = F.l1_loss(unlabel_strong_op, unlabel_weak_op)
+        unlabel_ce_loss = unlabelled_loss[unlabel_weak_op > self.confidence]
+
+        final_loss = label_ce_loss + self.weights * unlabel_ce_loss
+
         mean = mean.unsqueeze(1).unsqueeze(2)
         std = std.unsqueeze(1).unsqueeze(2)
 
@@ -125,10 +138,10 @@ class FixMatchUnetModule(MriModule):
             "fname": fname,
             "slice_num": slice_num,
             "max_value": max_value,
-            "output1": y_a * std + mean,
-            "output2": y_b * std + mean,
+            "output1": unlabel_weak_op,
+            "output2": unlabel_strong_op,
             "target": target * std + mean,
-            "val_loss": evaluate.barlow_loss(y_a, z_a, y_b, z_b, target)
+            "val_loss": final_loss
         }
 
     def test_step(self, batch, batch_idx):
