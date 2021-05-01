@@ -20,7 +20,8 @@ def off_diagonal(x):
     assert n == m
     return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
 
-class UnetModule(MriModule):
+
+class FixMatchUnetModule(MriModule):
     """
     Unet training module.
 
