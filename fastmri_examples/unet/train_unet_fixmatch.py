@@ -13,7 +13,7 @@ import pytorch_lightning as pl
 from fastmri.data.mri_data import fetch_dir
 from fastmri.data.subsample import create_mask_for_mask_type
 from fastmri.data.transforms import UnetDataTransform, UnetMixMatchDataTransform
-from fastmri.pl_modules import FastMriDataModule, FixMatchUnetModule, UnetModule
+from fastmri.pl_modules import FixMatchFastMriDataModule, FastMriDataModule, FixMatchUnetModule, UnetModule
 
 
 def cli_main(args):
@@ -34,7 +34,7 @@ def cli_main(args):
     val_transform = UnetMixMatchDataTransform(args.challenge, mask_func=(weak_mask, strong_mask), proportion=args.proportion)
     test_transform = UnetDataTransform(args.challenge)
     # ptl data module - this handles data loaders
-    data_module = FastMriDataModule(
+    data_module = FixMatchFastMriDataModule(
         data_path=args.data_path,
         challenge=args.challenge,
         train_transform=train_transform,
@@ -122,21 +122,21 @@ def build_args():
     parser.add_argument(
         "--proportion",
         nargs="+",
-        default=[0.1],
+        default=0.5,
         type=float,
         help="Proportion of label data",
     )
     parser.add_argument(
         "--confidence",
         nargs="+",
-        default=[0.8],
+        default=0.8,
         type=float,
         help="Confidence for weakly augmented pseudo label",
     )
     parser.add_argument(
         "--weights",
         nargs="+",
-        default=[0.5],
+        default=0.5,
         type=float,
         help="Weight of unlabel loss",
     )

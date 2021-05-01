@@ -98,14 +98,14 @@ class FixMatchUnetModule(MriModule):
         weak_img, strong_img, target, _, _, _, _, _ = batch
 
         n = weak_img.shape[0]
-
+        slice_index = int(self.proportion * n)
         # labelled images
-        label_op, label_ft = self(weak_img[:self.proportion * n])
-        label_ce_loss = F.l1_loss(label_op, target[:self.proportion * n])
+        label_op, label_ft = self(weak_img[:slice_index])
+        label_ce_loss = F.l1_loss(label_op, target[:slice_index])
 
         # unlabelled images
-        unlabel_weak_op, unlabel_weak_ft = self(weak_img[self.proportion * n:])  # weak augmented
-        unlabel_strong_op, unlabel_strong_ft = self(strong_img[self.proportion * n:])  # strong augmented
+        unlabel_weak_op, unlabel_weak_ft = self(weak_img[slice_index:])  # weak augmented
+        unlabel_strong_op, unlabel_strong_ft = self(strong_img[slice_index:])  # strong augmented
         bt_loss = evaluate.barlow_loss(unlabel_weak_op, unlabel_weak_ft, unlabel_strong_op, unlabel_strong_ft, target)
         unlabel_bt_loss = bt_loss[unlabel_weak_op > self.confidence]
 

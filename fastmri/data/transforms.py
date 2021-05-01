@@ -474,6 +474,7 @@ class UnetBarlowDataTransform:
         if target is not None:
             crop_size = (target.shape[-2], target.shape[-1])
         else:
+            print("vinh is here \n")
             crop_size = (attrs["recon_size"][0], attrs["recon_size"][1])
 
         # Image 1
@@ -486,10 +487,14 @@ class UnetBarlowDataTransform:
 
         # inverse Fourier transform to get zero filled solution
         image = fastmri.ifft2c(masked_kspace)
+        print("masked_kspace shape:\n", masked_kspace.shape)
+        print("image shape:\n", image.shape)
+        print("crop_size shape1:\n", crop_size)
 
         # check for FLAIR 203
         if image.shape[-2] < crop_size[1]:
             crop_size = (image.shape[-2], image.shape[-2])
+        print("crop_size shape2:\n", crop_size)
 
         image = complex_center_crop(image, crop_size)
 
@@ -571,6 +576,7 @@ class UnetMixMatchDataTransform:
         """
         if which_challenge not in ("singlecoil", "multicoil"):
             raise ValueError("Challenge should either be 'singlecoil' or 'multicoil'")
+        self.mask_func = mask_func
         self.strong_mask_func = None
         self.weak_mask_func = None
         if len(mask_func) > 1:
@@ -617,22 +623,27 @@ class UnetMixMatchDataTransform:
         if target is not None:
             crop_size = (target.shape[-2], target.shape[-1])
         else:
-            crop_size = (attrs["recon_size"][0], attrs["recon_size"][1])
+            print("vinh here\n")
+
+            crop_size = (attrs["recon_size"][0], attrs["recon_size"] [1])
         size = kspace.shape[0]
 
-
+        slide_index = int(size * self.proportion)
         # Handling Label image
 
-        labelled_kspace = kspace[:size*self.proportion]
+        labelled_kspace = kspace[:slide_index]
         if target is not None:
-            labelled_target = target[:size*self.proportion]
+            labelled_target = target[:slide_index]
 
         labelled_image = fastmri.ifft2c(labelled_kspace)
-
+        print("kspace shape:\n", kspace.shape)
+        print("labellel_image shape:\n", labelled_image.shape)
+        print("cropsize shape: 1\n", crop_size)
+        print("labelled_kspace shape:\n", labelled_kspace.shape)
         # check for FLAIR 203
         if labelled_image.shape[-2] < crop_size[1]:
             crop_size = (labelled_image.shape[-2], labelled_image.shape[-2])
-
+        print("cropsize shape: 2\n", crop_size)
         labelled_image = complex_center_crop(labelled_image, crop_size)
 
         # absolute value
@@ -655,9 +666,9 @@ class UnetMixMatchDataTransform:
             labelled_target = torch.Tensor([0])
 
         # unlabel kspace image handling
-        unlabelled_kspace = kspace[size*self.proportion:]
+        unlabelled_kspace = kspace[slide_index:]
         if target is not None:
-            unlabelled_target = target[size*self.proportion:]
+            unlabelled_target = target[slide_index:]
 
         if self.weak_mask_func:
             seed = None if not self.use_seed else tuple(map(ord, fname))
