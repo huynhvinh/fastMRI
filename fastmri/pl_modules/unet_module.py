@@ -42,6 +42,9 @@ class FixMatchUnetModule(MriModule):
         lr_step_size=40,
         lr_gamma=0.1,
         weight_decay=0.0,
+        confidence=0.8,
+        proportion=0.1,
+        weights=0.5,
         **kwargs,
     ):
         """
@@ -75,6 +78,9 @@ class FixMatchUnetModule(MriModule):
         self.lr_step_size = lr_step_size
         self.lr_gamma = lr_gamma
         self.weight_decay = weight_decay
+        self.proportion = proportion
+        self.confidence = confidence
+        self.weights = weights
         self.unet = Unet(
             in_chans=self.in_chans,
             out_chans=self.out_chans,
@@ -90,25 +96,20 @@ class FixMatchUnetModule(MriModule):
     def training_step(self, batch, batch_idx):
 
         weak_img, strong_img, target, _, _, _, _, _ = batch
-        
-        # TODO take as class parameters
-        u = 0.1
-        confidence = 0.9
-        sig = 0.8
 
         n = weak_img.shape[0]
 
         # labelled images
-        label_op, label_ft = self(weak_img[:u * n])
-        label_ce_loss = F.l1_loss(label_op, target[:u * n])
+        label_op, label_ft = self(weak_img[:self.proportion * n])
+        label_ce_loss = F.l1_loss(label_op, target[:self.proportion * n])
 
         # unlabelled images
-        unlabel_weak_op, unlabel_weak_ft = self(weak_img[u * n:])  # weak augmented
-        unlabel_strong_op, unlabel_strong_ft = self(strong_img[u * n:])  # strong augmented
+        unlabel_weak_op, unlabel_weak_ft = self(weak_img[self.proportion * n:])  # weak augmented
+        unlabel_strong_op, unlabel_strong_ft = self(strong_img[self.proportion * n:])  # strong augmented
         bt_loss = evaluate.barlow_loss(unlabel_weak_op, unlabel_weak_ft, unlabel_strong_op, unlabel_strong_ft, target)
-        unlabel_bt_loss = bt_loss[unlabel_weak_op > confidence]
+        unlabel_bt_loss = bt_loss[unlabel_weak_op > self.confidence]
 
-        final_loss = label_ce_loss + sig * unlabel_bt_loss
+        final_loss = label_ce_loss + self.weights * unlabel_bt_loss
 
         return final_loss
 
