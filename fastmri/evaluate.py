@@ -26,7 +26,8 @@ def off_diagonal(x):
     return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
 
 def barlow_loss(y_a, z_a, y_b, z_b, target):
-    
+    z_a = z_a[1:]
+    z_b = z_b[1:]
     
     batch_size = y_a.size(0)
     z_a = z_a.view(batch_size, -1)
@@ -39,7 +40,7 @@ def barlow_loss(y_a, z_a, y_b, z_b, target):
     on_diag = torch.diagonal(c).add_(-1).pow_(2).mean()
     off_diag = off_diagonal(c).pow_(2).mean()
     barlow = on_diag + 0.0001 * off_diag
-    loss = F.l1_loss(y_a, target) + F.l1_loss(y_b, target) + barlow
+    loss = F.l1_loss(y_a[0], target[0])  + barlow
     return loss
 
 
