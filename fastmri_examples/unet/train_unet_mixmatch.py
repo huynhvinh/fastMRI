@@ -12,7 +12,7 @@ from argparse import ArgumentParser
 import pytorch_lightning as pl
 from fastmri.data.mri_data import fetch_dir
 from fastmri.data.subsample import create_mask_for_mask_type
-from fastmri.data.transforms import UnetDataTransform
+from fastmri.data.transforms import UnetDataTransform, UnetMixMatchDataTransform
 from fastmri.pl_modules import FastMriDataModule, UnetModule
 
 
@@ -23,12 +23,15 @@ def cli_main(args):
     # data
     # ------------
     # this creates a k-space mask for transforming input data
-    mask = create_mask_for_mask_type(
+    weak_mask = create_mask_for_mask_type(
         args.mask_type, args.center_fractions, args.accelerations
     )
+    strong_mask = create_mask_for_mask_type(
+        args.mask_type, 1 - args.center_fractions, args.accelerations
+    )
     # use random masks for train transform, fixed masks for val transform
-    train_transform = UnetDataTransform(args.challenge, mask_func=mask, use_seed=False)
-    val_transform = UnetDataTransform(args.challenge, mask_func=mask)
+    train_transform = UnetMixMatchDataTransform(args.challenge, mask_func=(weak_mask, strong_mask), proportion=args.proportion, use_seed=False)
+    val_transform = UnetMixMatchDataTransform(args.challenge, mask_func=(weak_mask, strong_mask), proportion=args.proportion)
     test_transform = UnetDataTransform(args.challenge)
     # ptl data module - this handles data loaders
     data_module = FastMriDataModule(
@@ -58,6 +61,9 @@ def cli_main(args):
         lr_step_size=args.lr_step_size,
         lr_gamma=args.lr_gamma,
         weight_decay=args.weight_decay,
+        proportion=args.proportion,
+        confidence=args.confidence,
+        weights=args.weights,
     )
 
     # ------------
@@ -83,8 +89,8 @@ def build_args():
     path_config = pathlib.Path("../../fastmri_dirs.yaml")
     num_gpus = 0
     backend = "ddp_cpu"
-    batch_size = 1 if backend == "ddp_cpu" else num_gpus
-
+    #batch_size = 1 if backend == "ddp" else num_gpus
+    batch_size = 1
     # set defaults based on optional directory config
     data_path = fetch_dir("knee_path", path_config)
     default_root_dir = fetch_dir("log_path", path_config) / "unet" / "unet_demo"
@@ -112,6 +118,27 @@ def build_args():
         default=[0.08],
         type=float,
         help="Number of center lines to use in mask",
+    )
+    parser.add_argument(
+        "--proportion",
+        nargs="+",
+        default=[0.1],
+        type=float,
+        help="Proportion of label data",
+    )
+    parser.add_argument(
+        "--confidence",
+        nargs="+",
+        default=[0.8],
+        type=float,
+        help="Confidence for weakly augmented pseudo label",
+    )
+    parser.add_argument(
+        "--weights",
+        nargs="+",
+        default=[0.5],
+        type=float,
+        help="Weight of unlabel loss",
     )
     parser.add_argument(
         "--accelerations",
