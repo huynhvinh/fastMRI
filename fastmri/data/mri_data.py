@@ -206,6 +206,7 @@ class SliceDataset(torch.utils.data.Dataset):
         volume_sample_rate: Optional[float] = None,
         dataset_cache_file: Union[str, Path, os.PathLike] = "dataset_cache.pkl",
         num_cols: Optional[Tuple[int]] = None,
+        proportion: float = 0.1,
     ):
         """
         Args:
@@ -246,7 +247,7 @@ class SliceDataset(torch.utils.data.Dataset):
             "reconstruction_esc" if challenge == "singlecoil" else "reconstruction_rss"
         )
         self.examples = []
-
+        self.proportion = proportion
         # set default sampling mode if none given
         if sample_rate is None:
             sample_rate = 1.0
@@ -340,11 +341,11 @@ class SliceDataset(torch.utils.data.Dataset):
         return len(self.examples)
 
     def __getitem__(self, i: int):
-        proportion=0.1
-        batch_size=100
+        batch_size = 100
         is_label=False
-        if (i %batch_size) < int(proportion*100):
+        if (i % batch_size) < int(self.proportion*batch_size):
             is_label = True
+        # print("here is batch size", self.batch_size)
         fname, dataslice, metadata = self.examples[i]
 
         with h5py.File(fname, "r") as hf:
