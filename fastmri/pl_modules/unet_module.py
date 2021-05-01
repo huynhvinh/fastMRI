@@ -106,8 +106,9 @@ class FixMatchUnetModule(MriModule):
         # unlabelled images
         unlabel_weak_op, unlabel_weak_ft = self(weak_img[slice_index:])  # weak augmented
         unlabel_strong_op, unlabel_strong_ft = self(strong_img[slice_index:])  # strong augmented
-        unlabelled_loss = F.l1_loss(unlabel_strong_op, unlabel_weak_op)
+        unlabelled_loss = F.l1_loss(unlabel_strong_op, unlabel_weak_op, reduction='none')
         unlabel_ce_loss = unlabelled_loss[unlabel_weak_op > self.confidence]
+        unlabel_ce_loss = torch.mean(unlabel_ce_loss)
 
         final_loss = label_ce_loss + self.weights * unlabel_ce_loss
 
@@ -125,8 +126,9 @@ class FixMatchUnetModule(MriModule):
         # unlabelled images
         unlabel_weak_op, unlabel_weak_ft = self(weak_img[slice_index:])  # weak augmented
         unlabel_strong_op, unlabel_strong_ft = self(strong_img[slice_index:])  # strong augmented
-        unlabelled_loss = F.l1_loss(unlabel_strong_op, unlabel_weak_op)
+        unlabelled_loss = F.l1_loss(unlabel_strong_op, unlabel_weak_op, reduction='none')
         unlabel_ce_loss = unlabelled_loss[unlabel_weak_op > self.confidence]
+        unlabel_ce_loss = torch.mean(unlabel_ce_loss)
 
         final_loss = label_ce_loss + self.weights * unlabel_ce_loss
 
@@ -138,8 +140,7 @@ class FixMatchUnetModule(MriModule):
             "fname": fname,
             "slice_num": slice_num,
             "max_value": max_value,
-            "output1": unlabel_weak_op,
-            "output2": unlabel_strong_op,
+            "output": unlabel_weak_op,
             "target": target * std + mean,
             "val_loss": final_loss
         }
