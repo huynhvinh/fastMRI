@@ -88,26 +88,28 @@ class UnetModule(MriModule):
         return output.squeeze(1), features
 
     def training_step(self, batch, batch_idx):
-        image1, image2, target, _, _, _, _, _ = batch
 
-        # TODO take as input parameters
+        weak_img, strong_img, target, _, _, _, _, _ = batch
+        
+        # TODO take as class parameters
         u = 0.1
         confidence = 0.9
         sig = 0.8
 
-        n = image1.shape[0]
+        n = weak_img.shape[0]
 
         # labelled images
-        output1, _ = self(image1[:u * n])
-        ce_loss = F.l1_loss(output1, target[: u * n])
+        label_op, label_ft = self(weak_img[:u * n])
+        label_ce_loss = F.l1_loss(label_op, target[:u * n])
 
         # unlabelled images
-        output1, feature1 = self(image1[u * n:])  # weak
-        output2, feature2 = self(image2[u * n:])  # strong
-        bt_loss = evaluate.barlow_loss(output1, feature1, output2, feature2, target)
-        bt_loss = bt_loss[output1 > confidence]
+        unlabel_weak_op, unlabel_weak_ft = self(weak_img[u * n:])  # weak augmented
+        unlabel_strong_op, unlabel_strong_ft = self(strong_img[u * n:])  # strong augmented
+        bt_loss = evaluate.barlow_loss(unlabel_weak_op, unlabel_weak_ft, unlabel_strong_op, unlabel_strong_ft, target)
+        unlabel_bt_loss = bt_loss[unlabel_weak_op > confidence]
 
-        final_loss = ce_loss + sig * bt_loss
+        final_loss = label_ce_loss + sig * unlabel_bt_loss
+
         return final_loss
 
     def validation_step(self, batch, batch_idx):
