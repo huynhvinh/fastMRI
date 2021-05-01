@@ -100,10 +100,10 @@ class FixMatchUnetModule(MriModule):
         n = weak_img.shape[0]
         slice_index = int(self.proportion * n)
         # labelled images
-        label_op, label_ft = self(weak_img[:slice_index])
+        label_op, label_ft = self(strong_img[:slice_index])
         label_ce_loss = F.l1_loss(label_op, target[:slice_index])
 
-        print('lable ce loss\n', label_ce_loss)
+        print('label ce loss\n', label_ce_loss)
 
         # unlabelled images
         unlabel_weak_op, unlabel_weak_ft = self(weak_img[slice_index:])  # weak augmented
@@ -132,7 +132,7 @@ class FixMatchUnetModule(MriModule):
         slice_index = int(self.proportion * n)
         output = torch.empty_like(target)
         # labelled images
-        label_op, label_ft = self(weak_img[:slice_index])
+        label_op, label_ft = self(strong_img[:slice_index])
         label_ce_loss = F.l1_loss(label_op, target[:slice_index])
         output[:slice_index] = label_op
         # unlabelled images
