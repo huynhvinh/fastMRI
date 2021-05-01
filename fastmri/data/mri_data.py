@@ -340,6 +340,11 @@ class SliceDataset(torch.utils.data.Dataset):
         return len(self.examples)
 
     def __getitem__(self, i: int):
+        proportion=0.1
+        batch_size=100
+        is_label=False
+        if (i %batch_size) < int(proportion*100):
+            is_label = True
         fname, dataslice, metadata = self.examples[i]
 
         with h5py.File(fname, "r") as hf:
@@ -351,7 +356,7 @@ class SliceDataset(torch.utils.data.Dataset):
 
             attrs = dict(hf.attrs)
             attrs.update(metadata)
-
+        attrs["is_label"] = is_label
         if self.transform is None:
             sample = (kspace, mask, target, attrs, fname.name, dataslice)
         else:

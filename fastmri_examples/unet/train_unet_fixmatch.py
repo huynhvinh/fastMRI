@@ -90,7 +90,7 @@ def build_args():
     num_gpus = 0
     backend = "ddp_cpu"
     #batch_size = 1 if backend == "ddp" else num_gpus
-    batch_size = 1
+    batch_size = 100
     # set defaults based on optional directory config
     data_path = fetch_dir("knee_path", path_config)
     default_root_dir = fetch_dir("log_path", path_config) / "unet" / "unet_demo"
@@ -122,7 +122,7 @@ def build_args():
     parser.add_argument(
         "--proportion",
         nargs="+",
-        default=0.5,
+        default=0.1,
         type=float,
         help="Proportion of label data",
     )

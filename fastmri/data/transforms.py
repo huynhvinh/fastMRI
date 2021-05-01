@@ -623,56 +623,51 @@ class UnetMixMatchDataTransform:
         if target is not None:
             crop_size = (target.shape[-2], target.shape[-1])
         else:
-            print("vinh here\n")
-
             crop_size = (attrs["recon_size"][0], attrs["recon_size"] [1])
-        size = kspace.shape[0]
+        is_label = attrs["is_label"]
+        if is_label:
 
-        slide_index = int(size * self.proportion)
-        # Handling Label image
+                    # Handling Label image
 
-        labelled_kspace = kspace[:slide_index]
-        if target is not None:
-            labelled_target = target[:slide_index]
+            image = fastmri.ifft2c(kspace)
+            # print("kspace shape:\n", kspace.shape)
+            # print("labellel_image shape:\n", labelled_image.shape)
+            # print("cropsize shape: 1\n", crop_size)
+            # print("labelled_kspace shape:\n", labelled_kspace.shape)
+            # check for FLAIR 203
+            if image.shape[-2] < crop_size[1]:
+                crop_size = (image.shape[-2], image.shape[-2])
+            print("cropsize shape: 2\n", crop_size)
+            image = complex_center_crop(image, crop_size)
 
-        labelled_image = fastmri.ifft2c(labelled_kspace)
-        print("kspace shape:\n", kspace.shape)
-        print("labellel_image shape:\n", labelled_image.shape)
-        print("cropsize shape: 1\n", crop_size)
-        print("labelled_kspace shape:\n", labelled_kspace.shape)
-        # check for FLAIR 203
-        if labelled_image.shape[-2] < crop_size[1]:
-            crop_size = (labelled_image.shape[-2], labelled_image.shape[-2])
-        print("cropsize shape: 2\n", crop_size)
-        labelled_image = complex_center_crop(labelled_image, crop_size)
+            # absolute value
+            image = fastmri.complex_abs(image)
 
-        # absolute value
-        labelled_image = fastmri.complex_abs(labelled_image)
+            # apply Root-Sum-of-Squares if multicoil data
+            if self.which_challenge == "multicoil":
+                image = fastmri.rss(image)
 
-        # apply Root-Sum-of-Squares if multicoil data
-        if self.which_challenge == "multicoil":
-            labelled_image = fastmri.rss(labelled_image)
+            image, label_mean, label_std = normalize_instance(image, eps=1e-11)
+            lalbeled_image = image.clamp(-6, 6)
 
-        labelled_image, label_mean, label_std = normalize_instance(labelled_image, eps=1e-11)
-        labelled_image = labelled_image.clamp(-6, 6)
-
-        # normalize target
-        if target is not None:
-            labelled_target = to_tensor(labelled_target)
-            labelled_target = center_crop(labelled_target, crop_size)
-            labelled_target = normalize(labelled_target, label_mean, label_std, eps=1e-11)
-            labelled_target = labelled_target.clamp(-6, 6)
-        else:
-            labelled_target = torch.Tensor([0])
+            # normalize target
+            if target is not None:
+                labeled_target = to_tensor(target)
+                labeled_target = center_crop(labeled_target, crop_size)
+                labeled_target = normalize(labeled_target, label_mean, label_std, eps=1e-11)
+                labeled_target = labeled_target.clamp(-6, 6)
+            else:
+                labeled_target = torch.Tensor([0])
+            return lalbeled_image, lalbeled_image, labeled_target, label_mean, label_std, fname, slice_num, max_value
 
         # unlabel kspace image handling
-        unlabelled_kspace = kspace[slide_index:]
+        unlabelled_kspace = kspace
         if target is not None:
-            unlabelled_target = target[slide_index:]
+            unlabelled_target = target
 
         if self.weak_mask_func:
             seed = None if not self.use_seed else tuple(map(ord, fname))
-            weak_masked_kspace, weak_mask = apply_mask(unlabelled_kspace, self.weak_mask_func, seed)
+            weak_masked_kspace, weak_mask = apply_mask(kspace, self.weak_mask_func, seed)
         else:
             weak_masked_kspace = unlabelled_kspace
 
@@ -730,8 +725,4 @@ class UnetMixMatchDataTransform:
         else:
             unlabelled_target = torch.Tensor([0])
 
-        image = torch.stack([labelled_image, weak_image], dim=0)
-        image2 = torch.stack([labelled_image, strong_image], dim=0)
-        target = torch.stack([labelled_target, unlabelled_target], dim=0)
-
-        return image, image2, target, torch.mean(label_mean, unlabel_mean), torch.mean(label_std, unlabel_std), fname, slice_num, max_value
+        return weak_image, strong_image, unlabelled_target, unlabel_mean, unlabel_std,  fname, slice_num, max_value
