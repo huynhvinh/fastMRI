@@ -140,8 +140,7 @@ class FixMatchUnetModule(MriModule):
             "fname": fname,
             "slice_num": slice_num,
             "max_value": max_value,
-            "output1": unlabel_weak_op,
-            "output2": unlabel_strong_op,
+            "output": unlabel_weak_op,
             "target": target * std + mean,
             "val_loss": final_loss
         }
