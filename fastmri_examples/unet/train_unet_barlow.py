@@ -13,7 +13,7 @@ import pytorch_lightning as pl
 from fastmri.data.mri_data import fetch_dir
 from fastmri.data.subsample import create_mask_for_mask_type
 from fastmri.data.transforms import UnetDataTransform, UnetBarlowDataTransform
-from fastmri.pl_modules import FastMriDataModule, FixMatchUnetModule
+from fastmri.pl_modules import FastMriDataModule, UnetBarlowModule, UnetModule
 
 
 def cli_main(args):
@@ -48,7 +48,7 @@ def cli_main(args):
     # ------------
     # model
     # ------------
-    model = FixMatchUnetModule(
+    model = UnetBarlowModule(
         in_chans=args.in_chans,
         out_chans=args.out_chans,
         chans=args.chans,
