@@ -628,8 +628,12 @@ class UnetMixMatchDataTransform:
         if is_label:
 
                     # Handling Label image
-
-            image = fastmri.ifft2c(kspace)
+            if self.strong_mask_func:
+                seed = None if not self.use_seed else tuple(map(ord, fname))
+                masked_kspace, mask = apply_mask(kspace, self.strong_mask_func, seed)
+            else:
+                masked_kspace = kspace
+            image = fastmri.ifft2c(masked_kspace)
             # print("kspace shape:\n", kspace.shape)
             # print("labellel_image shape:\n", labelled_image.shape)
             # print("cropsize shape: 1\n", crop_size)

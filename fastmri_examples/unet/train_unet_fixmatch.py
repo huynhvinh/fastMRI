@@ -23,10 +23,10 @@ def cli_main(args):
     # data
     # ------------
     # this creates a k-space mask for transforming input data
-    weak_mask = create_mask_for_mask_type(
+    strong_mask = create_mask_for_mask_type(
         args.mask_type, args.center_fractions, args.accelerations
     )
-    strong_mask = create_mask_for_mask_type(
+    weak_mask = create_mask_for_mask_type(
         args.mask_type, [1-i for i in args.center_fractions], args.accelerations
     )
     # use random masks for train transform, fixed masks for val transform
