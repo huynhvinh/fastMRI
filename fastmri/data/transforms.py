@@ -641,7 +641,7 @@ class UnetMixMatchDataTransform:
             # check for FLAIR 203
             if image.shape[-2] < crop_size[1]:
                 crop_size = (image.shape[-2], image.shape[-2])
-            print("cropsize shape: 2\n", crop_size)
+            # print("cropsize shape: 2\n", crop_size)
             image = complex_center_crop(image, crop_size)
 
             # absolute value
