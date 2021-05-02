@@ -99,26 +99,29 @@ class FixMatchUnetModule(MriModule):
 
         n = weak_img.shape[0]
         slice_index = int(self.proportion * n)
+        label_ce_loss, unlabel_ce_loss = torch.tensor(0), torch.tensor(0)
         # labelled images
-        label_op, label_ft = self(strong_img[:slice_index])
-        label_ce_loss = F.l1_loss(label_op, target[:slice_index])
+        if(slice_index > 0):
+            label_op, label_ft = self(strong_img[:slice_index])
+            label_ce_loss = F.l1_loss(label_op, target[:slice_index])
 
-        #print('label ce loss\n', label_ce_loss)
+            #print('label ce loss\n', label_ce_loss)
 
         # unlabelled images
-        unlabel_weak_op, unlabel_weak_ft = self(weak_img[slice_index:])  # weak augmented
-        unlabel_strong_op, unlabel_strong_ft = self(strong_img[slice_index:])  # strong augmented
-        unlabelled_loss = F.l1_loss(unlabel_strong_op, unlabel_weak_op, reduction='none')
+        if slice_index < n:
+            unlabel_weak_op, unlabel_weak_ft = self(weak_img[slice_index:])  # weak augmented
+            unlabel_strong_op, unlabel_strong_ft = self(strong_img[slice_index:])  # strong augmented
+            unlabelled_loss = F.l1_loss(unlabel_strong_op, unlabel_weak_op, reduction='none')
 
-        unlabel_mask = torch.where(unlabelled_loss < self.confidence, 0, 1)
+            unlabel_mask = torch.where(unlabelled_loss < self.confidence, 0, 1)
 
-        #print('unlable ce loss\n', unlabelled_loss)
-        unlabel_ce_loss = unlabel_weak_op * unlabel_mask
+            #print('unlable ce loss\n', unlabelled_loss)
+            unlabel_ce_loss = unlabel_weak_op * unlabel_mask
 
-        #print('unlable ce loss after confidence\n', unlabel_ce_loss)
-        unlabel_ce_loss = torch.mean(unlabel_ce_loss)
+            #print('unlable ce loss after confidence\n', unlabel_ce_loss)
+            unlabel_ce_loss = torch.mean(unlabel_ce_loss)
 
-        #print('unlable ce loss after mean\n', unlabel_ce_loss)
+            #print('unlable ce loss after mean\n', unlabel_ce_loss)
 
         final_loss = label_ce_loss + self.weights * unlabel_ce_loss
         #print('final loss\n', final_loss)
@@ -133,24 +136,27 @@ class FixMatchUnetModule(MriModule):
         n = weak_img.shape[0]
         slice_index = int(self.proportion * n)
         output = torch.empty_like(target)
+        label_ce_loss, unlabel_ce_loss = torch.tensor(0), torch.tensor(0)
         # labelled images
-        label_op, label_ft = self(strong_img[:slice_index])
-        label_ce_loss = F.l1_loss(label_op, target[:slice_index])
-        output[:slice_index] = label_op
+        if(slice_index > 0):
+            label_op, label_ft = self(strong_img[:slice_index])
+            label_ce_loss = F.l1_loss(label_op, target[:slice_index])
+            output[:slice_index] = label_op
         # unlabelled images
-        unlabel_weak_op, unlabel_weak_ft = self(weak_img[slice_index:])  # weak augmented
-        unlabel_strong_op, unlabel_strong_ft = self(strong_img[slice_index:])  # strong augmented
-        unlabelled_loss = F.l1_loss(unlabel_strong_op, unlabel_weak_op, reduction='none')
-        output[slice_index:] = unlabel_weak_op
-        unlabel_mask = torch.where(unlabelled_loss < self.confidence, 0, 1)
+        if slice_index < n:
+            unlabel_weak_op, unlabel_weak_ft = self(weak_img[slice_index:])  # weak augmented
+            unlabel_strong_op, unlabel_strong_ft = self(strong_img[slice_index:])  # strong augmented
+            unlabelled_loss = F.l1_loss(unlabel_strong_op, unlabel_weak_op, reduction='none')
+            output[slice_index:] = unlabel_weak_op
+            unlabel_mask = torch.where(unlabelled_loss < self.confidence, 0, 1)
 
-        #print('unlable ce loss\n', unlabelled_loss)
-        unlabel_ce_loss = unlabel_weak_op * unlabel_mask
+            #print('unlable ce loss\n', unlabelled_loss)
+            unlabel_ce_loss = unlabel_weak_op * unlabel_mask
 
-        #print('unlable ce loss after confidence\n', unlabel_ce_loss)
-        unlabel_ce_loss = torch.mean(unlabel_ce_loss)
+            #print('unlable ce loss after confidence\n', unlabel_ce_loss)
+            unlabel_ce_loss = torch.mean(unlabel_ce_loss)
 
-        #print('unlable ce loss after mean\n', unlabel_ce_loss)
+            #print('unlable ce loss after mean\n', unlabel_ce_loss)
 
         final_loss = label_ce_loss + self.weights * unlabel_ce_loss
         #print('final loss\n', final_loss)
@@ -332,17 +338,19 @@ class UnetBarlowModule(MriModule):
         image_a, image_b, target, _, _, _, _, _ = batch
         n = image_a.shape[0]
         slice_index = int(self.proportion * n)
+        label_ce_loss, unlabelled_loss = torch.tensor(0), torch.tensor(0)
         # labelled images
-        label_op, label_ft = self(image_b[:slice_index])
-        label_ce_loss = F.l1_loss(label_op, target[:slice_index])
+        if(slice_index > 0):
+            label_op, label_ft = self(image_b[:slice_index])
+            label_ce_loss = F.l1_loss(label_op, target[:slice_index])
         
         # unlabelled images
-        
-        y_a, z_a = self(image_a[slice_index:])
-        y_b, z_b = self(image_b[slice_index:])
-        y_ads =  F.avg_pool2d(y_a, kernel_size=4, padding=0)
-        y_bds =  F.avg_pool2d(y_b, kernel_size=4, padding=0)
-        unlabelled_loss = self.barlow_loss(y_ads, y_bds)
+        if slice_index < n:
+            y_a, z_a = self(image_a[slice_index:])
+            y_b, z_b = self(image_b[slice_index:])
+            y_ads =  F.avg_pool2d(y_a, kernel_size=4, padding=0)
+            y_bds =  F.avg_pool2d(y_b, kernel_size=4, padding=0)
+            unlabelled_loss = self.barlow_loss(y_ads, y_bds)
 
         final_loss = label_ce_loss + self.weights * unlabelled_loss
         self.log("loss", final_loss.detach())
@@ -354,18 +362,21 @@ class UnetBarlowModule(MriModule):
         n = image_a.shape[0]
         slice_index = int(self.proportion * n)
         output = torch.empty_like(target)
+        label_ce_loss, unlabelled_loss = torch.tensor(0), torch.tensor(0)
         # labelled images
-        label_op, label_ft = self(image_b[:slice_index])
-        label_ce_loss = F.l1_loss(label_op, target[:slice_index])
-        output[:slice_index] = label_op
+        if(slice_index > 0):
+            label_op, label_ft = self(image_b[:slice_index])
+            label_ce_loss = F.l1_loss(label_op, target[:slice_index])
+            output[:slice_index] = label_op
         # unlabelled images
-        y_a, z_a = self(image_a[slice_index:])
-        y_b, z_b = self(image_b[slice_index:])
-        y_ads =  F.avg_pool2d(y_a, kernel_size=4, padding=0)
-        y_bds =  F.avg_pool2d(y_b, kernel_size=4, padding=0)
-        unlabelled_loss = self.barlow_loss(y_ads, y_bds)
-        final_loss = label_ce_loss + self.weights * unlabelled_loss
-        output[slice_index:] = y_a
+        if slice_index < n:
+            y_a, z_a = self(image_a[slice_index:])
+            y_b, z_b = self(image_b[slice_index:])
+            y_ads =  F.avg_pool2d(y_a, kernel_size=4, padding=0)
+            y_bds =  F.avg_pool2d(y_b, kernel_size=4, padding=0)
+            unlabelled_loss = self.barlow_loss(y_ads, y_bds)
+            final_loss = label_ce_loss + self.weights * unlabelled_loss
+            output[slice_index:] = y_a
         mean = mean.unsqueeze(1).unsqueeze(2)
         std = std.unsqueeze(1).unsqueeze(2)
 
