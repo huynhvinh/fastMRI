@@ -340,8 +340,9 @@ class UnetBarlowModule(MriModule):
         
         y_a, z_a = self(image_a[slice_index:])
         y_b, z_b = self(image_b[slice_index:])
-        unlabelled_loss = self.barlow_loss(y_a, y_b)
-        
+        y_ads =  F.avg_pool2d(y_a, kernel_size=4, padding=0)
+        y_bds =  F.avg_pool2d(y_b, kernel_size=4, padding=0)
+        unlabelled_loss = self.barlow_loss(y_ads, y_bds)
 
         final_loss = label_ce_loss + self.weights * unlabelled_loss
         self.log("loss", final_loss.detach())
@@ -360,7 +361,9 @@ class UnetBarlowModule(MriModule):
         # unlabelled images
         y_a, z_a = self(image_a[slice_index:])
         y_b, z_b = self(image_b[slice_index:])
-        unlabelled_loss = self.barlow_loss(y_a, y_b)
+        y_ads =  F.avg_pool2d(y_a, kernel_size=4, padding=0)
+        y_bds =  F.avg_pool2d(y_b, kernel_size=4, padding=0)
+        unlabelled_loss = self.barlow_loss(y_ads, y_bds)
         final_loss = label_ce_loss + self.weights * unlabelled_loss
         output[slice_index:] = y_a
         mean = mean.unsqueeze(1).unsqueeze(2)
