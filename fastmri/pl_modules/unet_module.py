@@ -529,7 +529,7 @@ class UnetModule(MriModule):
         )
 
     def forward(self, image):
-        return self.unet(image.unsqueeze(1)).squeeze(1)
+        return self.unet(image.unsqueeze(1))[0].squeeze(1)
 
     def training_step(self, batch, batch_idx):
         image, target, _, _, _, _, _ = batch
