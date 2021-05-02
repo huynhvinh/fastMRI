@@ -43,6 +43,7 @@ def cli_main(args):
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         distributed_sampler=(args.accelerator in ("ddp", "ddp_cpu")),
+        proportion=args.proportion,
     )
 
     # ------------
@@ -112,6 +113,13 @@ def build_args():
         default=[0.08],
         type=float,
         help="Number of center lines to use in mask",
+    )
+    parser.add_argument(
+        "--proportion",
+        nargs="+",
+        default=0.1,
+        type=float,
+        help="Proportion of label data",
     )
     parser.add_argument(
         "--accelerations",
