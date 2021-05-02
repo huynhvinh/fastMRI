@@ -161,7 +161,7 @@ class FixMatchUnetModule(MriModule):
             "fname": fname,
             "slice_num": slice_num,
             "max_value": max_value,
-            "output": output,
+            "output": output * std + mean,
             "target": target * std + mean,
             "val_loss": final_loss
         }
