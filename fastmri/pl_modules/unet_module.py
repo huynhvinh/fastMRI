@@ -123,6 +123,8 @@ class FixMatchUnetModule(MriModule):
         final_loss = label_ce_loss + self.weights * unlabel_ce_loss
         #print('final loss\n', final_loss)
 
+        self.log("loss", final_loss.detach())
+        
         return final_loss
 
     def validation_step(self, batch, batch_idx):
@@ -262,6 +264,10 @@ class UnetBarlowModule(MriModule):
         lr_step_size=40,
         lr_gamma=0.1,
         weight_decay=0.0,
+        barlow_scale=0.0001,
+        proportion=0.1,
+        weights=0.5,
+
         **kwargs,
     ):
         """
@@ -295,7 +301,9 @@ class UnetBarlowModule(MriModule):
         self.lr_step_size = lr_step_size
         self.lr_gamma = lr_gamma
         self.weight_decay = weight_decay
-
+        self.proportion = proportion
+        self.barlow_scale = barlow_scale
+        self.weights = weights
         self.unet = Unet(
             in_chans=self.in_chans,
             out_chans=self.out_chans,
@@ -303,6 +311,18 @@ class UnetBarlowModule(MriModule):
             num_pool_layers=self.num_pool_layers,
             drop_prob=self.drop_prob,
         )
+    def barlow_loss(self, z_a, z_b):
+        batch_size = z_a.size(0)
+        z_a = z_a.view(batch_size, -1)
+        z_b = z_b.view(batch_size, -1)
+        
+        z_a_norm = (z_a - z_a.mean(0)) / z_a.std(0)
+        z_b_norm = (z_b - z_b.mean(0)) / z_b.std(0)
+        c = (z_a_norm.T @ z_b_norm) / batch_size
+        
+        on_diag = torch.diagonal(c).add_(-1).pow_(2).mean()
+        off_diag = off_diagonal(c).pow_(2).mean()
+        return on_diag +  self.barlow_scale * off_diag
 
     def forward(self, image):
         output, features = self.unet(image.unsqueeze(1))
@@ -310,17 +330,39 @@ class UnetBarlowModule(MriModule):
 
     def training_step(self, batch, batch_idx):
         image_a, image_b, target, _, _, _, _, _ = batch
-        y_a, z_a = self(image_a)
-        y_b, z_b = self(image_b)
-        loss = evaluate.barlow_loss(y_a, z_a, y_b, z_b, target)
+        n = image_a.shape[0]
+        slice_index = int(self.proportion * n)
+        # labelled images
+        label_op, label_ft = self(image_b[:slice_index])
+        label_ce_loss = F.l1_loss(label_op, target[:slice_index])
+        
+        # unlabelled images
+        
+        y_a, z_a = self(image_a[slice_index:])
+        y_b, z_b = self(image_b[slice_index:])
+        unlabelled_loss = self.barlow_loss(z_a, z_b)
+        
 
-        self.log("loss", loss.detach())
-        return loss
+        final_loss = label_ce_loss + self.weights * unlabelled_loss
+        self.log("loss", final_loss.detach())
+        return final_loss
+        
 
     def validation_step(self, batch, batch_idx):
         image_a, image_b, target, mean, std, fname, slice_num, max_value = batch
-        y_a, z_a = self(image_a)
-        y_b, z_b = self(image_b)
+        n = image_a.shape[0]
+        slice_index = int(self.proportion * n)
+        output = torch.empty_like(target)
+        # labelled images
+        label_op, label_ft = self(image_b[:slice_index])
+        label_ce_loss = F.l1_loss(label_op, target[:slice_index])
+        output[:slice_index] = label_op
+        # unlabelled images
+        y_a, z_a = self(image_a[slice_index:])
+        y_b, z_b = self(image_b[slice_index:])
+        unlabelled_loss = self.barlow_loss(z_a, z_b)
+        final_loss = label_ce_loss + self.weights * unlabelled_loss
+        output[slice_index:] = y_a
         mean = mean.unsqueeze(1).unsqueeze(2)
         std = std.unsqueeze(1).unsqueeze(2)
 
@@ -329,10 +371,9 @@ class UnetBarlowModule(MriModule):
             "fname": fname,
             "slice_num": slice_num,
             "max_value": max_value,
-            "output1": y_a * std + mean,
-            "output2": y_b * std + mean,
+            "output": output * std + mean,
             "target": target * std + mean,
-            "val_loss": evaluate.barlow_loss(y_a, z_a, y_b, z_b, target)
+            "val_loss": final_loss
         }
 
     def test_step(self, batch, batch_idx):

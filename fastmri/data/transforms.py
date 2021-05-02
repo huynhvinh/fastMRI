@@ -487,14 +487,14 @@ class UnetBarlowDataTransform:
 
         # inverse Fourier transform to get zero filled solution
         image = fastmri.ifft2c(masked_kspace)
-        print("masked_kspace shape:\n", masked_kspace.shape)
-        print("image shape:\n", image.shape)
-        print("crop_size shape1:\n", crop_size)
+        # print("masked_kspace shape:\n", masked_kspace.shape)
+        # print("image shape:\n", image.shape)
+        # print("crop_size shape1:\n", crop_size)
 
         # check for FLAIR 203
         if image.shape[-2] < crop_size[1]:
             crop_size = (image.shape[-2], image.shape[-2])
-        print("crop_size shape2:\n", crop_size)
+        # print("crop_size shape2:\n", crop_size)
 
         image = complex_center_crop(image, crop_size)
 

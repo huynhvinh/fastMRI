@@ -12,8 +12,8 @@ from argparse import ArgumentParser
 import pytorch_lightning as pl
 from fastmri.data.mri_data import fetch_dir
 from fastmri.data.subsample import create_mask_for_mask_type
-from fastmri.data.transforms import UnetDataTransform, UnetBarlowDataTransform
-from fastmri.pl_modules import FastMriDataModule, UnetBarlowModule, UnetModule
+from fastmri.data.transforms import UnetDataTransform, UnetBarlowDataTransform, UnetMixMatchDataTransform
+from fastmri.pl_modules import FastMriDataModule, UnetBarlowModule, UnetModule, FixMatchFastMriDataModule
 
 
 def cli_main(args):
@@ -27,11 +27,11 @@ def cli_main(args):
         args.mask_type, args.center_fractions, args.accelerations
     )
     # use random masks for train transform, fixed masks for val transform
-    train_transform = UnetBarlowDataTransform(args.challenge, mask_func=mask, use_seed=False)
-    val_transform = UnetBarlowDataTransform(args.challenge, mask_func=mask)
+    train_transform = UnetMixMatchDataTransform(args.challenge, mask_func=(mask, mask), proportion=args.proportion, use_seed=False)
+    val_transform = UnetMixMatchDataTransform(args.challenge, mask_func=(mask, mask), proportion=args.proportion)
     test_transform = UnetDataTransform(args.challenge)
     # ptl data module - this handles data loaders
-    data_module = FastMriDataModule(
+    data_module = FixMatchFastMriDataModule(
         data_path=args.data_path,
         challenge=args.challenge,
         train_transform=train_transform,
@@ -43,6 +43,7 @@ def cli_main(args):
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         distributed_sampler=(args.accelerator in ("ddp", "ddp_cpu")),
+        proportion=args.proportion,
     )
 
     # ------------
@@ -58,6 +59,10 @@ def cli_main(args):
         lr_step_size=args.lr_step_size,
         lr_gamma=args.lr_gamma,
         weight_decay=args.weight_decay,
+        proportion=args.proportion,
+        weights=args.weights,
+        barlow_scale=args.barlow_scale,
+        
     )
 
     # ------------
@@ -84,7 +89,7 @@ def build_args():
     num_gpus = 0
     backend = "ddp_cpu"
     #batch_size = 1 if backend == "ddp" else num_gpus
-    batch_size = 1
+    batch_size = 100
     # set defaults based on optional directory config
     data_path = fetch_dir("knee_path", path_config)
     default_root_dir = fetch_dir("log_path", path_config) / "unet" / "unet_demo"
@@ -112,6 +117,27 @@ def build_args():
         default=[0.08],
         type=float,
         help="Number of center lines to use in mask",
+    )
+    parser.add_argument(
+                "--proportion",
+        nargs="+",
+        default=0.1,
+        type=float,
+        help="Proportion of label data",
+    )
+    parser.add_argument(
+                "--barlow_scale",
+        nargs="+",
+        default=0.0001,
+        type=float,
+        help="Scale to combine barlow loss with F1 Loss",
+    )
+    parser.add_argument(
+        "--weights",
+        nargs="+",
+        default=0.5,
+        type=float,
+        help="Weight of unlabel loss",
     )
     parser.add_argument(
         "--accelerations",
