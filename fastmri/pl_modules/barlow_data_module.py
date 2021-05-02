@@ -12,14 +12,14 @@ from typing import Callable, Optional, Union
 import fastmri
 import pytorch_lightning as pl
 import torch
-from fastmri.data import CombinedRepeatDataset, RepeatDataset
+from fastmri.data import CombinedSliceDataset, SliceDataset
 
 
 def worker_init_fn(worker_id):
     """Handle random seeding for all mask_func."""
     worker_info = torch.utils.data.get_worker_info()
     data: Union[
-        RepeatDataset, CombinedRepeatDataset
+        SliceDataset, CombinedSliceDataset
     ] = worker_info.dataset  # pylint: disable=no-member
 
     # Check if we are using DDP
@@ -31,7 +31,7 @@ def worker_init_fn(worker_id):
     # for NumPy random seed we need it to be in this range
     base_seed = worker_info.seed  # pylint: disable=no-member
 
-    if isinstance(data, CombinedRepeatDataset):
+    if isinstance(data, CombinedSliceDataset):
         for i, dataset in enumerate(data.datasets):
             if dataset.transform.mask_func is not None:
                 if (
@@ -63,7 +63,6 @@ def worker_init_fn(worker_id):
 
 class FastMriBarlowDataModule(pl.LightningDataModule):
     """
-    This class 
     Data module class for fastMRI data sets.
 
     This class handles configurations for training on fastMRI data. It is set
@@ -159,12 +158,35 @@ class FastMriBarlowDataModule(pl.LightningDataModule):
             sample_rate = 1.0
             volume_sample_rate = None  # default case, no subsampling
 
+        # if desired, combine train and val together for the train split
+        dataset: Union[SliceDataset, CombinedSliceDataset]
+        if is_train and self.combine_train_val:
+            data_paths = [
+                self.data_path / f"{self.challenge}_train",
+                self.data_path / f"{self.challenge}_val",
+            ]
+            data_transforms = [data_transform, data_transform]
+            challenges = [self.challenge, self.challenge]
+            sample_rates, volume_sample_rates = None, None  # default: no subsampling
+            if sample_rate is not None:
+                sample_rates = [sample_rate, sample_rate]
+            if volume_sample_rate is not None:
+                volume_sample_rates = [volume_sample_rate, volume_sample_rate]
+            dataset = CombinedSliceDataset(
+                roots=data_paths,
+                transforms=data_transforms,
+                challenges=challenges,
+                sample_rates=sample_rates,
+                volume_sample_rates=volume_sample_rates,
+                use_dataset_cache=self.use_dataset_cache_file,
+            )
+        else:
             if data_partition in ("test", "challenge") and self.test_path is not None:
                 data_path = self.test_path
             else:
                 data_path = self.data_path / f"{self.challenge}_{data_partition}"
 
-            dataset = RepeatDataset(
+            dataset = SliceDataset(
                 root=data_path,
                 transform=data_transform,
                 sample_rate=sample_rate,
@@ -214,7 +236,7 @@ class FastMriBarlowDataModule(pl.LightningDataModule):
             ):
                 sample_rate = self.sample_rate if i == 0 else 1.0
                 volume_sample_rate = self.volume_sample_rate if i == 0 else None
-                _ = RepeatDataset(
+                _ = SliceDataset(
                     root=data_path,
                     transform=data_transform,
                     sample_rate=sample_rate,

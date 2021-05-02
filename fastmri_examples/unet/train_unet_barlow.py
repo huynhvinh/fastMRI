@@ -13,7 +13,7 @@ import pytorch_lightning as pl
 from fastmri.data.mri_data import fetch_dir
 from fastmri.data.subsample import create_mask_for_mask_type
 from fastmri.data.transforms import UnetDataTransform, UnetBarlowDataTransform
-from fastmri.pl_modules import FastMriDataModule, UnetModule
+from fastmri.pl_modules import FastMriBarlowDataModule, UnetModule
 
 
 def cli_main(args):
@@ -31,7 +31,7 @@ def cli_main(args):
     val_transform = UnetBarlowDataTransform(args.challenge, mask_func=mask)
     test_transform = UnetDataTransform(args.challenge)
     # ptl data module - this handles data loaders
-    data_module = FastMriDataModule(
+    data_module = FastMriBarlowDataModule(
         data_path=args.data_path,
         challenge=args.challenge,
         train_transform=train_transform,
@@ -84,7 +84,7 @@ def build_args():
     num_gpus = 2
     backend = "ddp"
     #batch_size = 1 if backend == "ddp" else num_gpus
-    batch_size = 1
+    batch_size = 100
     # set defaults based on optional directory config
     data_path = fetch_dir("knee_path", path_config)
     default_root_dir = fetch_dir("log_path", path_config) / "unet" / "unet_demo"
@@ -112,6 +112,20 @@ def build_args():
         default=[0.08],
         type=float,
         help="Number of center lines to use in mask",
+    )
+    parser.add_argument(
+        "--proportion",
+        nargs="+",
+        default=0.1,
+        type=float,
+        help="Proportion of label data",
+    )
+    parser.add_argument(
+        "--weights",
+        nargs="+",
+        default=0.5,
+        type=float,
+        help="Weight of unlabel loss",
     )
     parser.add_argument(
         "--accelerations",
