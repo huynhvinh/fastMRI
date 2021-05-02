@@ -321,10 +321,9 @@ class UnetBarlowModule(MriModule):
         batch_size = z_a.size(0)
         z_a = z_a.view(batch_size, -1)
         z_b = z_b.view(batch_size, -1)
-        
-        z_a_norm = (z_a - z_a.mean(0)) / z_a.std(0)
-        z_b_norm = (z_b - z_b.mean(0)) / z_b.std(0)
-        c = (z_a_norm.T @ z_b_norm) / batch_size
+        z_a = (z_a - z_a.mean(0)) / z_a.std(0)
+        z_b = (z_b - z_b.mean(0)) / z_b.std(0)
+        c = (z_a.T @ z_b) / batch_size
         
         on_diag = torch.diagonal(c).add_(-1).pow_(2).mean()
         off_diag = off_diagonal(c).pow_(2).mean()
@@ -345,7 +344,7 @@ class UnetBarlowModule(MriModule):
             label_ce_loss = F.l1_loss(label_op, target[:slice_index])
         
         # unlabelled images
-        if slice_index < n:
+        if slice_index < (n - 1):
             y_a, z_a = self(image_a[slice_index:])
             y_b, z_b = self(image_b[slice_index:])
             y_ads =  F.avg_pool2d(y_a, kernel_size=4, padding=0)
@@ -369,7 +368,7 @@ class UnetBarlowModule(MriModule):
             label_ce_loss = F.l1_loss(label_op, target[:slice_index])
             output[:slice_index] = label_op
         # unlabelled images
-        if slice_index < n:
+        if slice_index < (n - 1):
             y_a, z_a = self(image_a[slice_index:])
             y_b, z_b = self(image_b[slice_index:])
             y_ads =  F.avg_pool2d(y_a, kernel_size=4, padding=0)
