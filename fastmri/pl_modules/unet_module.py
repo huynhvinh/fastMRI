@@ -340,7 +340,7 @@ class UnetBarlowModule(MriModule):
         
         y_a, z_a = self(image_a[slice_index:])
         y_b, z_b = self(image_b[slice_index:])
-        unlabelled_loss = self.barlow_loss(z_a, z_b)
+        unlabelled_loss = self.barlow_loss(y_a, y_b)
         
 
         final_loss = label_ce_loss + self.weights * unlabelled_loss
