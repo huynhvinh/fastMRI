@@ -122,7 +122,6 @@ def build_args():
     )
     parser.add_argument(
         "--proportion",
-        nargs="+",
         default=0.1,
         type=float,
         help="Proportion of label data",
