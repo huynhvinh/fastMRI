@@ -338,7 +338,7 @@ class SliceDataset(torch.utils.data.Dataset):
         return metadata, num_slices
 
     def __len__(self):
-        return len(self.examples)
+        return int(len(self.examples) * self.proportion)
 
     def __getitem__(self, i: int):
         # batch_size = 100

@@ -91,6 +91,7 @@ class FastMriDataModule(pl.LightningDataModule):
         batch_size: int = 1,
         num_workers: int = 4,
         distributed_sampler: bool = False,
+        proportion: float = 0.1,
     ):
         """
         Args:
@@ -137,6 +138,7 @@ class FastMriDataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.distributed_sampler = distributed_sampler
+        self.proportion=proportion
 
     def _create_data_loader(
         self,
@@ -193,6 +195,7 @@ class FastMriDataModule(pl.LightningDataModule):
                 volume_sample_rate=volume_sample_rate,
                 challenge=self.challenge,
                 use_dataset_cache=self.use_dataset_cache_file,
+                proportion=self.proportion
             )
 
         # ensure that entire volumes go to the same GPU in the ddp setting

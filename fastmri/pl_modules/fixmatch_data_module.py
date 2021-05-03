@@ -19,7 +19,7 @@ def fixmatch_worker_init_fn(worker_id):
     """Handle random seeding for all mask_func."""
     worker_info = torch.utils.data.get_worker_info()
     data: Union[
-        SliceDataset, CombinedSliceDataset
+        FixMatchSliceDataset, CombinedSliceDataset
     ] = worker_info.dataset  # pylint: disable=no-member
 
     # Check if we are using DDP
@@ -163,7 +163,7 @@ class FixMatchFastMriDataModule(pl.LightningDataModule):
             volume_sample_rate = None  # default case, no subsampling
 
         # if desired, combine train and val together for the train split
-        dataset: Union[SliceDataset, CombinedSliceDataset]
+        dataset: Union[FixMatchSliceDataset, CombinedSliceDataset]
         if is_train and self.combine_train_val:
             data_paths = [
                 self.data_path / f"{self.challenge}_train",
@@ -242,13 +242,15 @@ class FixMatchFastMriDataModule(pl.LightningDataModule):
             ):
                 sample_rate = self.sample_rate if i == 0 else 1.0
                 volume_sample_rate = self.volume_sample_rate if i == 0 else None
-                _ = SliceDataset(
+                _ = FixMatchSliceDataset(
                     root=data_path,
                     transform=data_transform,
                     sample_rate=sample_rate,
                     volume_sample_rate=volume_sample_rate,
                     challenge=self.challenge,
                     use_dataset_cache=self.use_dataset_cache_file,
+                    batch_size=self.batch_size,
+                    proportion=self.proportion,
                 )
 
     def train_dataloader(self):
