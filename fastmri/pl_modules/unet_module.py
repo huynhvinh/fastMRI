@@ -374,8 +374,9 @@ class UnetBarlowModule(MriModule):
             y_ads =  F.avg_pool2d(y_a, kernel_size=4, padding=0)
             y_bds =  F.avg_pool2d(y_b, kernel_size=4, padding=0)
             unlabelled_loss = self.barlow_loss(y_ads, y_bds)
-            final_loss = label_ce_loss + self.weights * unlabelled_loss
             output[slice_index:] = y_a
+        
+        final_loss = label_ce_loss + self.weights * unlabelled_loss
         mean = mean.unsqueeze(1).unsqueeze(2)
         std = std.unsqueeze(1).unsqueeze(2)
 
