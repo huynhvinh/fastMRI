@@ -99,7 +99,7 @@ class FixMatchUnetModule(MriModule):
 
         n = weak_img.shape[0]
         slice_index = int(self.proportion * n)
-        label_ce_loss, unlabel_ce_loss = torch.tensor(0), torch.tensor(0)
+        label_ce_loss, unlabelled_loss = torch.tensor(0.0, requires_grad=True), torch.tensor(0.0, requires_grad=True)
         # labelled images
         if(slice_index > 0):
             label_op, label_ft = self(strong_img[:slice_index])
@@ -136,7 +136,7 @@ class FixMatchUnetModule(MriModule):
         n = weak_img.shape[0]
         slice_index = int(self.proportion * n)
         output = torch.empty_like(target)
-        label_ce_loss, unlabel_ce_loss = torch.tensor(0), torch.tensor(0)
+        label_ce_loss, unlabelled_loss = torch.tensor(0.0, requires_grad=True), torch.tensor(0.0, requires_grad=True)
         # labelled images
         if(slice_index > 0):
             label_op, label_ft = self(strong_img[:slice_index])
@@ -337,7 +337,7 @@ class UnetBarlowModule(MriModule):
         image_a, image_b, target, _, _, _, _, _ = batch
         n = image_a.shape[0]
         slice_index = int(self.proportion * n)
-        label_ce_loss, unlabelled_loss = torch.tensor(0), torch.tensor(0)
+        label_ce_loss, unlabelled_loss = torch.tensor(0.0, requires_grad=True), torch.tensor(0.0, requires_grad=True)
         # labelled images
         if(slice_index > 0):
             label_op, label_ft = self(image_b[:slice_index])
@@ -361,7 +361,7 @@ class UnetBarlowModule(MriModule):
         n = image_a.shape[0]
         slice_index = int(self.proportion * n)
         output = torch.empty_like(target)
-        label_ce_loss, unlabelled_loss = torch.tensor(0), torch.tensor(0)
+        label_ce_loss, unlabelled_loss = torch.tensor(0.0, requires_grad=True), torch.tensor(0.0, requires_grad=True)
         # labelled images
         if(slice_index > 0):
             label_op, label_ft = self(image_b[:slice_index])
