@@ -474,7 +474,7 @@ class UnetBarlowDataTransform:
         if target is not None:
             crop_size = (target.shape[-2], target.shape[-1])
         else:
-            print("vinh is here \n")
+            # print("vinh is here \n")
             crop_size = (attrs["recon_size"][0], attrs["recon_size"][1])
 
         # Image 1
