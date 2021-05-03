@@ -532,7 +532,7 @@ class UnetModule(MriModule):
 
     def training_step(self, batch, batch_idx):
         image, target, _, _, _, _, _ = batch
-        print(image.shape)
+        # print(image.shape)
         output = self(image)
         loss = F.l1_loss(output, target)
 
