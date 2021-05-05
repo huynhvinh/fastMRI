@@ -12,10 +12,18 @@ from typing import Optional
 
 import h5py
 import numpy as np
+import torch
+from torch.nn import functional as F
 from runstats import Statistics
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 
 from fastmri.data import transforms
+
+def off_diagonal(x):
+    # return a flattened view of the off-diagonal elements of a square matrix
+    n, m = x.shape
+    assert n == m
+    return x.flatten()[:-1].view(n - 1, n + 1)[:, 1:].flatten()
 
 
 def mse(gt: np.ndarray, pred: np.ndarray) -> np.ndarray:

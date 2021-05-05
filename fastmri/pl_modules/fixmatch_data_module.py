@@ -12,14 +12,14 @@ from typing import Callable, Optional, Union
 import fastmri
 import pytorch_lightning as pl
 import torch
-from fastmri.data import CombinedSliceDataset, SliceDataset
+from fastmri.data import CombinedSliceDataset, SliceDataset, FixMatchSliceDataset
 
 
-def worker_init_fn(worker_id):
+def fixmatch_worker_init_fn(worker_id):
     """Handle random seeding for all mask_func."""
     worker_info = torch.utils.data.get_worker_info()
     data: Union[
-        SliceDataset, CombinedSliceDataset
+        FixMatchSliceDataset, CombinedSliceDataset
     ] = worker_info.dataset  # pylint: disable=no-member
 
     # Check if we are using DDP
@@ -52,16 +52,18 @@ def worker_init_fn(worker_id):
                         + worker_info.id * len(data.datasets)
                         + i
                     )
-                dataset.transform.mask_func.rng.seed(seed_i % (2 ** 32 - 1))
+                dataset.transform.mask_func[0].rng.seed(seed_i % (2 ** 32 - 1))
+                dataset.transform.mask_func[1].rng.seed(seed_i % (2 ** 32 - 1))
     elif data.transform.mask_func is not None:
         if is_ddp:  # DDP training: unique seed is determined by worker and device
             seed = base_seed + torch.distributed.get_rank() * worker_info.num_workers
         else:
             seed = base_seed
-        data.transform.mask_func.rng.seed(seed % (2 ** 32 - 1))
+        data.transform.mask_func[0].rng.seed(seed % (2 ** 32 - 1))
+        data.transform.mask_func[1].rng.seed(seed % (2 ** 32 - 1))
 
 
-class FastMriDataModule(pl.LightningDataModule):
+class FixMatchFastMriDataModule(pl.LightningDataModule):
     """
     Data module class for fastMRI data sets.
 
@@ -91,7 +93,7 @@ class FastMriDataModule(pl.LightningDataModule):
         batch_size: int = 1,
         num_workers: int = 4,
         distributed_sampler: bool = False,
-        proportion: float = 0.1,
+        proportion: float=0.1,
     ):
         """
         Args:
@@ -138,7 +140,7 @@ class FastMriDataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.distributed_sampler = distributed_sampler
-        self.proportion=proportion
+        self.proportion = proportion
 
     def _create_data_loader(
         self,
@@ -161,7 +163,7 @@ class FastMriDataModule(pl.LightningDataModule):
             volume_sample_rate = None  # default case, no subsampling
 
         # if desired, combine train and val together for the train split
-        dataset: Union[SliceDataset, CombinedSliceDataset]
+        dataset: Union[FixMatchSliceDataset, CombinedSliceDataset]
         if is_train and self.combine_train_val:
             data_paths = [
                 self.data_path / f"{self.challenge}_train",
@@ -188,14 +190,15 @@ class FastMriDataModule(pl.LightningDataModule):
             else:
                 data_path = self.data_path / f"{self.challenge}_{data_partition}"
 
-            dataset = SliceDataset(
+            dataset = FixMatchSliceDataset(
                 root=data_path,
                 transform=data_transform,
                 sample_rate=sample_rate,
                 volume_sample_rate=volume_sample_rate,
                 challenge=self.challenge,
                 use_dataset_cache=self.use_dataset_cache_file,
-                proportion=self.proportion
+                batch_size=self.batch_size,
+                proportion=self.proportion,
             )
 
         # ensure that entire volumes go to the same GPU in the ddp setting
@@ -210,7 +213,7 @@ class FastMriDataModule(pl.LightningDataModule):
             dataset=dataset,
             batch_size=self.batch_size,
             num_workers=self.num_workers,
-            worker_init_fn=worker_init_fn,
+            worker_init_fn=fixmatch_worker_init_fn,
             sampler=sampler,
         )
 
@@ -239,13 +242,15 @@ class FastMriDataModule(pl.LightningDataModule):
             ):
                 sample_rate = self.sample_rate if i == 0 else 1.0
                 volume_sample_rate = self.volume_sample_rate if i == 0 else None
-                _ = SliceDataset(
+                _ = FixMatchSliceDataset(
                     root=data_path,
                     transform=data_transform,
                     sample_rate=sample_rate,
                     volume_sample_rate=volume_sample_rate,
                     challenge=self.challenge,
                     use_dataset_cache=self.use_dataset_cache_file,
+                    batch_size=self.batch_size,
+                    proportion=self.proportion,
                 )
 
     def train_dataloader(self):
@@ -329,7 +334,7 @@ class FastMriDataModule(pl.LightningDataModule):
         parser.add_argument(
             "--num_workers",
             default=4,
-            type=int,
+            type=float,
             help="Number of workers to use in data loader",
         )
 

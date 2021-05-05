@@ -12,8 +12,8 @@ from argparse import ArgumentParser
 import pytorch_lightning as pl
 from fastmri.data.mri_data import fetch_dir
 from fastmri.data.subsample import create_mask_for_mask_type
-from fastmri.data.transforms import VarNetDataTransform
-from fastmri.pl_modules import FastMriDataModule, VarNetModule
+from fastmri.data.transforms import UnetDataTransform, UnetBarlowDataTransform, UnetMixMatchDataTransform
+from fastmri.pl_modules import FastMriDataModule, UnetBarlowModule, UnetModule, FixMatchFastMriDataModule
 
 
 def cli_main(args):
@@ -27,11 +27,11 @@ def cli_main(args):
         args.mask_type, args.center_fractions, args.accelerations
     )
     # use random masks for train transform, fixed masks for val transform
-    train_transform = VarNetDataTransform(mask_func=mask, use_seed=False)
-    val_transform = VarNetDataTransform(mask_func=mask)
-    test_transform = VarNetDataTransform()
+    train_transform = UnetMixMatchDataTransform(args.challenge, mask_func=(mask, mask), proportion=args.proportion, use_seed=False)
+    val_transform = UnetMixMatchDataTransform(args.challenge, mask_func=(mask, mask), proportion=args.proportion)
+    test_transform = UnetDataTransform(args.challenge)
     # ptl data module - this handles data loaders
-    data_module = FastMriDataModule(
+    data_module = FixMatchFastMriDataModule(
         data_path=args.data_path,
         challenge=args.challenge,
         train_transform=train_transform,
@@ -43,21 +43,26 @@ def cli_main(args):
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         distributed_sampler=(args.accelerator in ("ddp", "ddp_cpu")),
+        proportion=args.proportion,
     )
 
     # ------------
     # model
     # ------------
-    model = VarNetModule(
-        num_cascades=args.num_cascades,
-        pools=args.pools,
+    model = UnetBarlowModule(
+        in_chans=args.in_chans,
+        out_chans=args.out_chans,
         chans=args.chans,
-        sens_pools=args.sens_pools,
-        sens_chans=args.sens_chans,
+        num_pool_layers=args.num_pool_layers,
+        drop_prob=args.drop_prob,
         lr=args.lr,
         lr_step_size=args.lr_step_size,
         lr_gamma=args.lr_gamma,
         weight_decay=args.weight_decay,
+        proportion=args.proportion,
+        weights=args.weights,
+        barlow_scale=args.barlow_scale,
+        
     )
 
     # ------------
@@ -81,13 +86,13 @@ def build_args():
 
     # basic args
     path_config = pathlib.Path("../../fastmri_dirs.yaml")
-    backend = "ddp"
-    num_gpus = 2 if backend == "ddp" else 1
+    num_gpus = 0
+    backend = "ddp_cpu"
+    #batch_size = 1 if backend == "ddp" else num_gpus
     batch_size = 100
-
     # set defaults based on optional directory config
     data_path = fetch_dir("knee_path", path_config)
-    default_root_dir = fetch_dir("log_path", path_config) / "varnet" / "varnet_demo"
+    default_root_dir = fetch_dir("log_path", path_config) / "unet" / "unet_demo"
 
     # client arguments
     parser.add_argument(
@@ -102,7 +107,7 @@ def build_args():
     parser.add_argument(
         "--mask_type",
         choices=("random", "equispaced"),
-        default="equispaced",
+        default="random",
         type=str,
         help="Type of k-space mask",
     )
@@ -114,6 +119,26 @@ def build_args():
         help="Number of center lines to use in mask",
     )
     parser.add_argument(
+                "--proportion",
+        default=0.1,
+        type=float,
+        help="Proportion of label data",
+    )
+    parser.add_argument(
+                "--barlow_scale",
+        nargs="+",
+        default=0.0001,
+        type=float,
+        help="Scale to combine barlow loss with F1 Loss",
+    )
+    parser.add_argument(
+        "--weights",
+        nargs="+",
+        default=0.5,
+        type=float,
+        help="Weight of unlabel loss",
+    )
+    parser.add_argument(
         "--accelerations",
         nargs="+",
         default=[4],
@@ -121,28 +146,22 @@ def build_args():
         help="Acceleration rates to use for masks",
     )
 
-    # data config
+    # data config with path to fastMRI data and batch size
     parser = FastMriDataModule.add_data_specific_args(parser)
-    parser.set_defaults(
-        data_path=data_path,  # path to fastMRI data
-        mask_type="equispaced",  # VarNet uses equispaced mask
-        challenge="multicoil",  # only multicoil implemented for VarNet
-        batch_size=batch_size,  # number of samples per batch
-        test_path=None,  # path for test split, overwrites data_path
-    )
+    parser.set_defaults(data_path=data_path, batch_size=batch_size, test_path=None)
 
     # module config
-    parser = VarNetModule.add_model_specific_args(parser)
+    parser = UnetModule.add_model_specific_args(parser)
     parser.set_defaults(
-        num_cascades=8,  # number of unrolled iterations
-        pools=4,  # number of pooling layers for U-Net
-        chans=18,  # number of top-level channels for U-Net
-        sens_pools=4,  # number of pooling layers for sense est. U-Net
-        sens_chans=8,  # number of top-level channels for sense est. U-Net
-        lr=0.001,  # Adam learning rate
+        in_chans=1,  # number of input channels to U-Net
+        out_chans=1,  # number of output chanenls to U-Net
+        chans=32,  # number of top-level U-Net channels
+        num_pool_layers=4,  # number of U-Net pooling layers
+        drop_prob=0.0,  # dropout probability
+        lr=0.001,  # RMSProp learning rate
         lr_step_size=40,  # epoch at which to decrease learning rate
         lr_gamma=0.1,  # extent to which to decrease learning rate
-        weight_decay=0.0,  # weight regularization strength
+        weight_decay=0.0,  # weight decay regularization strength
     )
 
     # trainer config
@@ -165,7 +184,7 @@ def build_args():
         checkpoint_dir.mkdir(parents=True)
 
     args.checkpoint_callback = pl.callbacks.ModelCheckpoint(
-        filepath=args.default_root_dir / "checkpoints",
+        dirpath=args.default_root_dir / "checkpoints",
         save_top_k=True,
         verbose=True,
         monitor="validation_loss",

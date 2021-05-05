@@ -6,6 +6,7 @@ LICENSE file in the root directory of this source tree.
 """
 
 from .mri_module import MriModule
-from .unet_module import UnetModule
+from .unet_module import UnetModule, UnetBarlowModule, FixMatchUnetModule
 from .varnet_module import VarNetModule
 from .data_module import FastMriDataModule
+from .fixmatch_data_module import FixMatchFastMriDataModule

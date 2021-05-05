@@ -84,8 +84,9 @@ class Unet(nn.Module):
             output = F.avg_pool2d(output, kernel_size=2, stride=2, padding=0)
 
         output = self.conv(output)
-
+        features = output
         # apply up-sampling layers
+        i = 0
         for transpose_conv, conv in zip(self.up_transpose_conv, self.up_conv):
             downsample_layer = stack.pop()
             output = transpose_conv(output)
@@ -101,8 +102,9 @@ class Unet(nn.Module):
 
             output = torch.cat([output, downsample_layer], dim=1)
             output = conv(output)
+            
 
-        return output
+        return output, features
 
 
 class ConvBlock(nn.Module):

@@ -43,6 +43,7 @@ def cli_main(args):
         batch_size=args.batch_size,
         num_workers=args.num_workers,
         distributed_sampler=(args.accelerator in ("ddp", "ddp_cpu")),
+        proportion=args.proportion,
     )
 
     # ------------
@@ -81,10 +82,10 @@ def build_args():
 
     # basic args
     path_config = pathlib.Path("../../fastmri_dirs.yaml")
-    num_gpus = 2
-    backend = "ddp"
-    #batch_size = 1 if backend == "ddp" else num_gpus
-    batch_size = 1
+    num_gpus = 0
+    backend = "ddp_cpu"
+    batch_size = 1 if backend == "ddp_cpu" else num_gpus
+
     # set defaults based on optional directory config
     data_path = fetch_dir("knee_path", path_config)
     default_root_dir = fetch_dir("log_path", path_config) / "unet" / "unet_demo"
@@ -112,6 +113,12 @@ def build_args():
         default=[0.08],
         type=float,
         help="Number of center lines to use in mask",
+    )
+    parser.add_argument(
+        "--proportion",
+        default=0.1,
+        type=float,
+        help="Proportion of label data",
     )
     parser.add_argument(
         "--accelerations",
